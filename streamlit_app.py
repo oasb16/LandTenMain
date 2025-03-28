@@ -1,41 +1,37 @@
 """
-streamlit_app.py — Main UI Entry Point for LandTena (Streamlit Version)
+streamlit_app.py — Entry point for the LandTena AI-First App
+Ensures user is authenticated, then calls issue_flow.render_issue_flow()
 """
 
 import streamlit as st
-from auth import authenticate_user
+from auth import authenticate_user  # AWS Cognito + Google
 from issue_flow import render_issue_flow
 
 # ───────────────────────────────────────────────────────────────
-# APP CONFIGURATION
+# Streamlit page config
 # ───────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="LandTena Portal",
+    page_title="LandTena 2.0 AI-Agentic",
     page_icon="🏠",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-st.title("🏠 LandTena: Tenant-Landlord Issue Tracker")
+st.title("🏠 LandTena 2.0 — AI-Agentic Tenant Issue Portal")
 
 # ───────────────────────────────────────────────────────────────
-# AUTHENTICATION (AWS Cognito + Google Federated Login)
+# Authentication: retrieve or prompt for AWS Cognito login
 # ───────────────────────────────────────────────────────────────
-user_info = authenticate_user()  # Ensures valid session or halts app
+user_info = authenticate_user()  # Will handle redirect if not logged in
 
-# Store user session
-st.session_state.user_email = user_info.get("email")
-st.session_state.user_name = user_info.get("name")
-
-st.success(f"Welcome, {st.session_state.user_name}! ✨")
+# We store the user’s email in st.session_state
+st.session_state.user_email = user_info.get("email", "unknown@example.com")
+st.markdown(f"**Welcome:** {st.session_state.user_email}")
 
 # ───────────────────────────────────────────────────────────────
-# MAIN APP FLOW (Tenant ↔ Landlord ↔ Contractor)
+# Render the main AI-based issue flow
 # ───────────────────────────────────────────────────────────────
-render_issue_flow(user_email=st.session_state.user_email)
+render_issue_flow(st.session_state.user_email)
 
-# ───────────────────────────────────────────────────────────────
-# FOOTER
-# ───────────────────────────────────────────────────────────────
 st.markdown("---")
-st.caption("© 2025 LandTena | Secure Tenant-Landlord Coordination")
+st.caption("© 2025 LandTena — AI-First Multi-Role Maintenance System")

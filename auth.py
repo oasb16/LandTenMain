@@ -1,17 +1,31 @@
+"""
+auth.py — AWS Cognito + Google SSO integration for Streamlit
+Minimal example that stores id_token in st.session_state
+"""
+
 import streamlit as st
 import requests
-import json
 import urllib.parse
 from jose import jwt
 
-# ==== CONFIGURATION (Replace with your values) ====
-COGNITO_DOMAIN = "YOUR_COGNITO_DOMAIN"  # e.g., your-app.auth.us-west-2.amazoncognito.com
+# TODO: Replace with your Cognito + Google Federation details
+COGNITO_DOMAIN = "YOUR_COGNITO_DOMAIN.auth.us-west-2.amazoncognito.com"
 CLIENT_ID = "YOUR_COGNITO_CLIENT_ID"
-REDIRECT_URI = "http://localhost:8501/"  # Or deployed Streamlit URI
+REDIRECT_URI = "http://localhost:8501"  # Adjust if deployed
 USER_POOL_ID = "YOUR_USER_POOL_ID"
-REGION = "YOUR_AWS_REGION"  # e.g., us-west-2
+AWS_REGION = "us-west-2"
 
-# ========== URL Builders ==========
+def authenticate_user():
+    # Check if we already have an ID token
+    if "id_token" not in st.session_state:
+        # Try to parse the URL hash fragment if user was redirected
+        parse_cognito_redirect()
+    if "id_token" not in st.session_state:
+        # If still no token, show login link
+        login_url = build_login_url()
+        st.markdown(f"### [Login with Google via Cognito]({login_url})")
+        st.stop()  # Stop execution until user logs in
+    return decode_id_token(st.session_state["id_token"])
 
 def build_login_url():
     params = {
@@ -22,23 +36,32 @@ def build_login_url():
     }
     return f"https://{COGNITO_DOMAIN}/login?{urllib.parse.urlencode(params)}"
 
-def decode_token(token):
-    jwks_url = f"https://cognito-idp.{REGION}.amazonaws.com/{USER_POOL_ID}/.well-known/jwks.json"
-    jwks = requests.get(jwks_url).json()
-    return jwt.decode(token, jwks, algorithms=["RS256"], audience=CLIENT_ID)
-
-# ========== Authentication ==========
-
-def authenticate_user():
-    query_params = st.experimental_get_query_params()
+def parse_cognito_redirect():
+    # Attempt to read the token from the hash fragment in the URL
     fragment = st.experimental_get_query_params().get("fragment")
+    if fragment:
+        # The fragment might contain something like 'id_token=...&access_token=...'
+        token_data = parse_fragment(fragment[0])
+        if "id_token" in token_data:
+            st.session_state["id_token"] = token_data["id_token"]
 
-    if "id_token" not in st.session_state:
-        st.markdown("### Login Required")
-        login_url = build_login_url()
-        st.markdown(f"[Login with Google via Cognito]({login_url})")
-        st.stop()
+def parse_fragment(fragment_str):
+    # Parse a URL fragment into key-value pairs
+    parts = fragment_str.split("&")
+    data = {}
+    for part in parts:
+        key, val = part.split("=")
+        data[key] = val
+    return data
 
-    # Already authenticated
-    user_info = decode_token(st.session_state["id_token"])
-    return user_info
+def decode_id_token(token):
+    # Retrieve the public keys (JWKS) from Cognito to verify token
+    jwks_url = f"https://cognito-idp.{AWS_REGION}.amazonaws.com/{USER_POOL_ID}/.well-known/jwks.json"
+    jwks_data = requests.get(jwks_url).json()
+    # Verify signature and claims
+    decoded = jwt.decode(token, jwks_data, algorithms=["RS256"], audience=CLIENT_ID)
+    return {
+        "email": decoded.get("email"),
+        "sub": decoded.get("sub"),
+        "name": decoded.get("name", "")
+    }
