@@ -1,8 +1,8 @@
+zlib1g-dev
+libjpeg-dev
+libfreetype6-dev
 streamlit==1.25.0
 requests==2.31.0
 python-jose[cryptography]==3.3.0
 boto3==1.28.0
 openai
-zlib1g-dev
-libjpeg-dev
-libfreetype6-dev
